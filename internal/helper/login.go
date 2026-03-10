@@ -1,8 +1,8 @@
 package helper
 
-func LoginResponse(_ LoginInput) (LoginOutput, error) {
+func LoginResponse(input LoginInput) (LoginOutput, error) {
 	return LoginOutput{
-		AssertionResponse: AssertionResponse{ID: "stub-assertion", Type: "public-key"},
-		Credential:        Credential{ID: "stub-credential"},
+		AssertionResponse: AssertionResponse{ID: input.Credential.ID, RawID: input.Credential.ID, Type: "public-key"},
+		Credential:        input.Credential,
 	}, nil
 }
