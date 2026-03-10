@@ -33,6 +33,7 @@ type Credential struct {
 	UserID        string `json:"userId"`
 	RPID          string `json:"rpId"`
 	Algorithm     int    `json:"algorithm"`
+	PublicKey     string `json:"publicKey"`
 	PublicKeyPEM  string `json:"publicKeyPem"`
 	PrivateKeyPEM string `json:"privateKeyPem"`
 	SignCount     uint32 `json:"signCount"`

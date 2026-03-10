@@ -97,6 +97,7 @@ func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 		UserID:        input.CreationOptions.User.ID,
 		RPID:          input.CreationOptions.RP.ID,
 		Algorithm:     alg,
+		PublicKey:     base64.RawURLEncoding.EncodeToString(publicDER),
 		PublicKeyPEM:  string(publicPEM),
 		PrivateKeyPEM: string(privatePEM),
 		SignCount:     0,
