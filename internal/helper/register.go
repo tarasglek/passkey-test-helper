@@ -18,10 +18,14 @@ type attestationObject struct {
 }
 
 type authDataObject struct {
-	RPIDHash    string `json:"rpIdHash"`
+	RPID         string `json:"rpId"`
+	RPIDHash     string `json:"rpIdHash"`
 	CredentialID string `json:"credentialId"`
+	PublicKey    string `json:"publicKey"`
 	PublicKeyPEM string `json:"publicKeyPem"`
-	SignCount   uint32 `json:"signCount"`
+	Algorithm    int    `json:"algorithm"`
+	SignCount    uint32 `json:"signCount"`
+	Transports   []string `json:"transports"`
 }
 
 func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
@@ -74,10 +78,14 @@ func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 	attestationObjectBytes, err := json.Marshal(attestationObject{
 		Fmt: "none",
 		AuthData: authDataObject{
+			RPID:         input.CreationOptions.RP.ID,
 			RPIDHash:     rpHashX.Text(16),
 			CredentialID: credentialID,
+			PublicKey:    base64.RawURLEncoding.EncodeToString(publicDER),
 			PublicKeyPEM: string(publicPEM),
+			Algorithm:    alg,
 			SignCount:    0,
+			Transports:   []string{"internal"},
 		},
 	})
 	if err != nil {
