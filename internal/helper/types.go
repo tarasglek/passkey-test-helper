@@ -40,8 +40,12 @@ type Credential struct {
 }
 
 type AuthenticatorAttestationResponse struct {
-	ClientDataJSON    string `json:"clientDataJSON"`
-	AttestationObject string `json:"attestationObject"`
+	ClientDataJSON    string   `json:"clientDataJSON"`
+	AttestationObject string   `json:"attestationObject"`
+	AuthenticatorData string   `json:"authenticatorData"`
+	PublicKey         string   `json:"publicKey"`
+	PublicKeyAlgorithm int     `json:"publicKeyAlgorithm"`
+	Transports        []string `json:"transports"`
 }
 
 type AttestationResponse struct {

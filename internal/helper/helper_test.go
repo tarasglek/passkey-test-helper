@@ -1,9 +1,12 @@
 package helper
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"testing"
+
+	"github.com/fxamacker/cbor/v2"
 )
 
 func TestRegisterResponse(t *testing.T) {
@@ -44,6 +47,26 @@ func TestRegisterResponse(t *testing.T) {
 	if clientData["type"] != "webauthn.create" {
 		t.Fatalf("expected webauthn.create, got %#v", clientData["type"])
 	}
+
+	decodedAuthData, err := base64.RawURLEncoding.DecodeString(output.AttestationResponse.Response.AuthenticatorData)
+	if err != nil {
+		t.Fatalf("failed to decode authenticatorData: %v", err)
+	}
+	if len(decodedAuthData) < 37 {
+		t.Fatalf("expected binary authenticator data, got %d bytes", len(decodedAuthData))
+	}
+
+	decodedAttObj, err := base64.RawURLEncoding.DecodeString(output.AttestationResponse.Response.AttestationObject)
+	if err != nil {
+		t.Fatalf("failed to decode attestationObject: %v", err)
+	}
+	var attObj map[string]any
+	if err := cbor.Unmarshal(decodedAttObj, &attObj); err != nil {
+		t.Fatalf("failed to unmarshal attestationObject cbor: %v", err)
+	}
+	if attObj["fmt"] != "none" {
+		t.Fatalf("expected none attestation, got %#v", attObj["fmt"])
+	}
 }
 
 func TestLoginResponse(t *testing.T) {
@@ -64,7 +87,7 @@ func TestLoginResponse(t *testing.T) {
 		Origin: "http://localhost",
 		RequestOptions: RequestOptions{
 			Challenge: "challenge-login",
-			RPID: "localhost",
+			RPID:      "localhost",
 		},
 		Credential: registered.Credential,
 	})
@@ -92,11 +115,11 @@ func TestLoginResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to decode authenticatorData: %v", err)
 	}
-	var authData map[string]any
-	if err := json.Unmarshal(decodedAuthData, &authData); err != nil {
-		t.Fatalf("failed to unmarshal authenticatorData: %v", err)
+	if len(decodedAuthData) != 37 {
+		t.Fatalf("expected 37-byte authenticatorData, got %d", len(decodedAuthData))
 	}
-	if authData["rpId"] != "localhost" {
-		t.Fatalf("expected rpId localhost, got %#v", authData["rpId"])
+	expectedRPIDHash := sha256.Sum256([]byte("localhost"))
+	if string(decodedAuthData[:32]) != string(expectedRPIDHash[:]) {
+		t.Fatal("rpIdHash mismatch")
 	}
 }

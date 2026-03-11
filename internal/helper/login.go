@@ -6,17 +6,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"math/big"
+	"encoding/json"
 )
-
-type assertionAuthenticatorData struct {
-	RPID      string `json:"rpId"`
-	SignCount uint32 `json:"signCount"`
-}
 
 type ecdsaSignature struct {
 	R, S *big.Int
@@ -43,9 +37,9 @@ func LoginResponse(input LoginInput) (LoginOutput, error) {
 	}
 
 	clientDataJSONBytes, err := json.Marshal(map[string]any{
-		"type": "webauthn.get",
-		"challenge": input.RequestOptions.Challenge,
-		"origin": input.Origin,
+		"type":        "webauthn.get",
+		"challenge":   input.RequestOptions.Challenge,
+		"origin":      input.Origin,
 		"crossOrigin": false,
 	})
 	if err != nil {
@@ -54,13 +48,7 @@ func LoginResponse(input LoginInput) (LoginOutput, error) {
 
 	updatedCredential := input.Credential
 	updatedCredential.SignCount += 1
-	authDataBytes, err := json.Marshal(assertionAuthenticatorData{
-		RPID:      input.RequestOptions.RPID,
-		SignCount: updatedCredential.SignCount,
-	})
-	if err != nil {
-		return LoginOutput{}, err
-	}
+	authDataBytes := makeAssertionAuthData(input.RequestOptions.RPID, updatedCredential.SignCount, true)
 
 	clientHash := sha256.Sum256(clientDataJSONBytes)
 	toSign := append(append([]byte{}, authDataBytes...), clientHash[:]...)
@@ -80,10 +68,10 @@ func LoginResponse(input LoginInput) (LoginOutput, error) {
 			RawID: input.Credential.ID,
 			Type:  "public-key",
 			Response: AuthenticatorAssertionResponse{
-				ClientDataJSON:    base64.RawURLEncoding.EncodeToString(clientDataJSONBytes),
-				AuthenticatorData: base64.RawURLEncoding.EncodeToString(authDataBytes),
-				Signature:         base64.RawURLEncoding.EncodeToString(signatureDER),
-				UserHandle:        base64.RawURLEncoding.EncodeToString([]byte(input.Credential.UserID)),
+				ClientDataJSON:    base64url(clientDataJSONBytes),
+				AuthenticatorData: base64url(authDataBytes),
+				Signature:         base64url(signatureDER),
+				UserHandle:        base64url([]byte(input.Credential.UserID)),
 			},
 		},
 		Credential: updatedCredential,

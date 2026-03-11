@@ -5,28 +5,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"math/big"
 )
-
-type attestationObject struct {
-	Fmt      string         `json:"fmt"`
-	AuthData authDataObject `json:"authData"`
-}
-
-type authDataObject struct {
-	RPID         string `json:"rpId"`
-	RPIDHash     string `json:"rpIdHash"`
-	CredentialID string `json:"credentialId"`
-	PublicKey    string `json:"publicKey"`
-	PublicKeyPEM string `json:"publicKeyPem"`
-	Algorithm    int    `json:"algorithm"`
-	SignCount    uint32 `json:"signCount"`
-	Transports   []string `json:"transports"`
-}
 
 func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 	if input.CreationOptions.RP.ID == "" {
@@ -62,32 +44,23 @@ func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 	if _, err := rand.Read(credentialIDBytes); err != nil {
 		return RegisterOutput{}, err
 	}
-	credentialID := base64.RawURLEncoding.EncodeToString(credentialIDBytes)
+	credentialID := base64url(credentialIDBytes)
 
 	clientDataJSONBytes, err := json.Marshal(map[string]any{
-		"type": "webauthn.create",
-		"challenge": input.CreationOptions.Challenge,
-		"origin": input.Origin,
+		"type":        "webauthn.create",
+		"challenge":   input.CreationOptions.Challenge,
+		"origin":      input.Origin,
 		"crossOrigin": false,
 	})
 	if err != nil {
 		return RegisterOutput{}, err
 	}
 
-	rpHashX, _ := rand.Int(rand.Reader, big.NewInt(1<<62))
-	attestationObjectBytes, err := json.Marshal(attestationObject{
-		Fmt: "none",
-		AuthData: authDataObject{
-			RPID:         input.CreationOptions.RP.ID,
-			RPIDHash:     rpHashX.Text(16),
-			CredentialID: credentialID,
-			PublicKey:    base64.RawURLEncoding.EncodeToString(publicDER),
-			PublicKeyPEM: string(publicPEM),
-			Algorithm:    alg,
-			SignCount:    0,
-			Transports:   []string{"internal"},
-		},
-	})
+	attestationObjectBytes, authenticatorDataBytes, err := makeAttestationObject(
+		input.CreationOptions.RP.ID,
+		credentialIDBytes,
+		&privateKey.PublicKey,
+	)
 	if err != nil {
 		return RegisterOutput{}, err
 	}
@@ -97,7 +70,7 @@ func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 		UserID:        input.CreationOptions.User.ID,
 		RPID:          input.CreationOptions.RP.ID,
 		Algorithm:     alg,
-		PublicKey:     base64.RawURLEncoding.EncodeToString(publicDER),
+		PublicKey:     base64url(publicDER),
 		PublicKeyPEM:  string(publicPEM),
 		PrivateKeyPEM: string(privatePEM),
 		SignCount:     0,
@@ -109,8 +82,12 @@ func RegisterResponse(input RegisterInput) (RegisterOutput, error) {
 			RawID: credentialID,
 			Type:  "public-key",
 			Response: AuthenticatorAttestationResponse{
-				ClientDataJSON:    base64.RawURLEncoding.EncodeToString(clientDataJSONBytes),
-				AttestationObject: base64.RawURLEncoding.EncodeToString(attestationObjectBytes),
+				ClientDataJSON:    base64url(clientDataJSONBytes),
+				AttestationObject: base64url(attestationObjectBytes),
+				AuthenticatorData: base64url(authenticatorDataBytes),
+				PublicKey:         base64url(publicDER),
+				PublicKeyAlgorithm: alg,
+				Transports:        []string{"internal"},
 			},
 		},
 		Credential: credential,
